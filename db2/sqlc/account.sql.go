@@ -44,7 +44,7 @@ const deleteAccount = `-- name: DeleteAccount :exec
 DELETE FROM accounts WHERE id = $1
 `
 
-// Here UpdateAccount is the name of the function in generated go code :exec means execute the query
+// Here UpdateAccount is the name of the function in generated go code :one means return one row
 func (q *Queries) DeleteAccount(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteAccount, id)
 	return err
@@ -110,6 +110,7 @@ func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]A
 }
 
 const updateAccount = `-- name: UpdateAccount :one
+
 UPDATE accounts SET balance = $2 WHERE id = $1
 RETURNING id, owner, balance, currency, created_at
 `
