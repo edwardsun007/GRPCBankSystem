@@ -1,0 +1,12 @@
+version: "1"
+packages:
+ - name: "db" # the name of go package that will be generated
+   path: "./db2/sqlc/" # the path to the folder for storing generated go lang code, it must be created first
+   queries: "./db2/query/"
+   schema: "./db2/migration/"
+   engine: "postgresql"
+   sql_package: "database/sql"
+   emit_json_tags: true
+   emit_prepared_queries: false
+   emit_interface: false
+   emit_exact_table_names: false
