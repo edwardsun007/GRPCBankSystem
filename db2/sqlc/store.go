@@ -104,8 +104,9 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return teError // the transaction will be rolled back if this error occurs
 		}
 
-		// update accounts balance
-		account1, err := q.GetAccount(ctx, arg.FromAccountID)
+		// steps for updating sender account balance
+		// account1, err := q.GetAccount(ctx, arg.FromAccountID) // this was wrong because it didn't lock the row 
+		account1, err := q.GetAccountForUpdate(ctx, arg.FromAccountID)
 		if err != nil {
 			return err
 		}
@@ -118,8 +119,8 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 			return err
 		}
 
-		// Update the to account
-		account2, err := q.GetAccount(ctx, arg.ToAccountID)
+		// steps for updating receiver account balance
+		account2, err := q.GetAccountForUpdate(ctx, arg.ToAccountID)
 		if err != nil {
 			return err
 		}

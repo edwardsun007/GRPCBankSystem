@@ -56,6 +56,9 @@ SELECT id, owner, balance, currency, created_at FROM accounts WHERE id = $1 LIMI
 `
 
 // the * means return all the columns
+// There was a bug here during concurrent transactions:
+// when we read the row, we need to lock it from begin to the commit of the transaction
+// otherwise, the other transaction will get incorrect info because the previous transaction is not completed yet
 func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
 	row := q.db.QueryRowContext(ctx, getAccount, id)
 	var i Account
@@ -69,8 +72,27 @@ func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
 	return i, err
 }
 
-const listAccounts = `-- name: ListAccounts :many
+const getAccountForUpdate = `-- name: GetAccountForUpdate :one
 
+SELECT id, owner, balance, currency, created_at FROM accounts WHERE id = $1 LIMIT 1 FOR UPDATE
+`
+
+// Here GetAccount is the name of the function in generated go code :one means one row
+// we should use this function instead for transaction
+func (q *Queries) GetAccountForUpdate(ctx context.Context, id int64) (Account, error) {
+	row := q.db.QueryRowContext(ctx, getAccountForUpdate, id)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Owner,
+		&i.Balance,
+		&i.Currency,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listAccounts = `-- name: ListAccounts :many
 SELECT id, owner, balance, currency, created_at FROM accounts ORDER BY id LIMIT $1 OFFSET $2
 `
 
@@ -79,7 +101,6 @@ type ListAccountsParams struct {
 	Offset int32 `json:"offset"`
 }
 
-// Here GetAccount is the name of the function in generated go code :one means one row
 func (q *Queries) ListAccounts(ctx context.Context, arg ListAccountsParams) ([]Account, error) {
 	rows, err := q.db.QueryContext(ctx, listAccounts, arg.Limit, arg.Offset)
 	if err != nil {

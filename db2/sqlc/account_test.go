@@ -108,38 +108,38 @@ func TestUpdateAccount(t *testing.T) {
 	verifyNoAccountExists(t)
 }
 
-// func TestListAccounts(t *testing.T) {
-// 	// Store all created account IDs for cleanup
-// 	var createdAccountIDs []int64
+func TestListAccounts(t *testing.T) {
+	// Store all created account IDs for cleanup
+	var createdAccountIDs []int64
 
-// 	// Create 10 accounts and store their IDs
-// 	for i := 0; i < 10; i++ {
-// 		account := createRandomAccount(t)
-// 		createdAccountIDs = append(createdAccountIDs, account.ID)
-// 	}
+	// Create 10 accounts and store their IDs
+	for i := 0; i < 10; i++ {
+		account := createRandomAccount(t)
+		createdAccountIDs = append(createdAccountIDs, account.ID)
+	}
 
-// 	arg := ListAccountsParams{
-// 		Limit:  5,
-// 		Offset: 5,
-// 	}
-// 	accounts, err := testQueries.ListAccounts(context.Background(), arg)
-// 	require.NoError(t, err)
-// 	require.NotEmpty(t, accounts)
-// 	t.Logf("Total num of accounts: %d", len(accounts))
-// 	require.Len(t, accounts, 5)
+	arg := ListAccountsParams{
+		Limit:  5,
+		Offset: 5,
+	}
+	accounts, err := testQueries.ListAccounts(context.Background(), arg)
+	require.NoError(t, err)
+	require.NotEmpty(t, accounts)
+	t.Logf("Total num of accounts: %d", len(accounts))
+	require.Len(t, accounts, 5)
 
-// 	for _, account := range accounts {
-// 		require.NotEmpty(t, account)
-// 	}
+	for _, account := range accounts {
+		require.NotEmpty(t, account)
+	}
 
-// 	// Clean up all accounts from the database (including any from previous test runs)
-// 	// Must delete child records first due to foreign key constraints
-// 	_, err = testDB.Exec("DELETE FROM entries")
-// 	require.NoError(t, err)
-// 	_, err = testDB.Exec("DELETE FROM transfers")
-// 	require.NoError(t, err)
-// 	_, err = testDB.Exec("DELETE FROM accounts")
-// 	require.NoError(t, err)
+	// Clean up all accounts from the database (including any from previous test runs)
+	// Must delete child records first due to foreign key constraints
+	_, err = testDB.Exec("DELETE FROM entries")
+	require.NoError(t, err)
+	_, err = testDB.Exec("DELETE FROM transfers")
+	require.NoError(t, err)
+	_, err = testDB.Exec("DELETE FROM accounts")
+	require.NoError(t, err)
 
-// 	verifyNoAccountExists(t)
-// }
+	verifyNoAccountExists(t)
+}
