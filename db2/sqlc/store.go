@@ -62,6 +62,11 @@ type TransferTxResult struct {
 	ToEntry     Entry    `json:"to_entry"`     // the created entry record for the incoming account
 }
 
+var txKey = struct{}{}
+
+// the seccond bracket means that it is empty object
+// struct{} is the type
+
 // TransferTx performs a money transfer from one account to another
 // it creates a transfer record, add account entries, and update accounts balance within a single database transaction
 // parameter ctx is the context
@@ -105,34 +110,45 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 		}
 
 		// steps for updating sender account balance
-		// account1, err := q.GetAccount(ctx, arg.FromAccountID) // this was wrong because it didn't lock the row 
-		account1, err := q.GetAccountForUpdate(ctx, arg.FromAccountID)
-		if err != nil {
-			return err
-		}
+		if arg.FromAccountID < arg.ToAccountID { // step to avoid deadlock: to fix case where both concurrenttransaction try to update the same account
+			var faError error
+			result.FromAccount, faError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+				ID:     arg.FromAccountID,
+				Amount: -arg.Amount,
+			})
+			if faError != nil {
+				return faError // the transaction will be rolled back if this error occurs
+			}
 
-		result.FromAccount, err = q.UpdateAccount(ctx, UpdateAccountParams{
-			ID:      arg.FromAccountID,
-			Balance: account1.Balance - arg.Amount,
-		})
-		if err != nil {
-			return err
-		}
+			// steps for updating receiver account balance
+			var taError error
+			result.ToAccount, taError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+				ID:     arg.ToAccountID,
+				Amount: arg.Amount,
+			})
+			if taError != nil {
+				return taError // the transaction will be rolled back if this error occurs
+			}
+		} else { // update receiver account balance first
+			// steps for updating receiver account balance
+			var taError error
+			result.ToAccount, taError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+				ID:     arg.ToAccountID,
+				Amount: arg.Amount,
+			})
+			if taError != nil {
+				return taError // the transaction will be rolled back if this error occurs
+			}
 
-		// steps for updating receiver account balance
-		account2, err := q.GetAccountForUpdate(ctx, arg.ToAccountID)
-		if err != nil {
-			return err
+			var faError error
+			result.FromAccount, faError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+				ID:     arg.FromAccountID,
+				Amount: -arg.Amount,
+			})
+			if faError != nil {
+				return faError // the transaction will be rolled back if this error occurs
+			}
 		}
-
-		result.ToAccount, err = q.UpdateAccount(ctx, UpdateAccountParams{
-			ID:      arg.ToAccountID,
-			Balance: account2.Balance + arg.Amount,
-		})
-		if err != nil {
-			return err
-		}
-
 		return nil
 	}) // this block does the job of creating the transfer record
 

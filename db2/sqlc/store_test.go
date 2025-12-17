@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -14,8 +13,7 @@ func TestTransferTx(t *testing.T) {
 	// Arrange: Prepare test data
 	account1 := createRandomAccount(t)
 	account2 := createRandomAccount(t)
-    fmt.Println(">> before:", account1.Balance, account2.Balance)
-
+	// fmt.Println(">> before:", account1.Balance, account2.Balance)
 	// run n concurrent transfer transactions
 	n := 5 // run 5 concurrent transactions
 	amount := int64(10) // each transaction transfer 10 units
@@ -26,8 +24,10 @@ func TestTransferTx(t *testing.T) {
 	// arrange:  this for loop will start 5 concurrent goroutines
 	// each goroutine will call the TransferTx function and send the result to the channel
 	for i := 0; i < n; i++ {
+		txName := fmt.Sprintf("tx %d", i + 1) // varaible for transaction name
         go func() {
-           result, err := store.TransferTx(context.Background(), TransferTxParams{
+		   ctx := context.WithValue(context.Background(), txKey, txName) // add transaction name to context
+           result, err := store.TransferTx(ctx, TransferTxParams{
 		     FromAccountID: account1.ID,
 			 ToAccountID: account2.ID,
 			 Amount: amount,
@@ -46,6 +46,7 @@ func TestTransferTx(t *testing.T) {
 
 		result := <- results // receive result from channel
 		require.NotEmpty(t, result)
+		fmt.Println(">> before transfer:", account1.Balance, account2.Balance)
 
 		// check transfer
 		transfer := result.Transfer
@@ -91,7 +92,7 @@ func TestTransferTx(t *testing.T) {
 		require.Equal(t, account2.ID, toAccount.ID)
 
 		// check accounts balance
-		fmt.Println(">> tx:", fromAccount.Balance, toAccount.Balance)
+		fmt.Println(">> after:", fromAccount.Balance, toAccount.Balance)
 		diff1 := account1.Balance - fromAccount.Balance // original balance - after transfer balance
 		diff2 := toAccount.Balance - account2.Balance // after transfer balance - original balance
 		require.Equal(t, diff1, diff2)
@@ -112,9 +113,7 @@ func TestTransferTx(t *testing.T) {
 
 	updatedAccount2, err := testQueries.GetAccount(context.Background(), account2.ID)
 	require.NoError(t, err)
-
 	fmt.Println(">> after:", updatedAccount1.Balance, updatedAccount2.Balance)
-
 	require.Equal(t, account1.Balance - int64(n) * amount, updatedAccount1.Balance)
 	require.Equal(t, account2.Balance + int64(n) * amount, updatedAccount2.Balance)
 
@@ -129,4 +128,69 @@ func TestTransferTx(t *testing.T) {
 
 	verifyNoAccountExists(t)
 
+}
+
+
+func TestTransferTxDeadlock(t *testing.T) {
+	store := NewStore(testDB) // create a new store instance
+
+	// Arrange: Prepare test data
+	account1 := createRandomAccount(t)
+	account2 := createRandomAccount(t)
+	fmt.Println(">> before:", account1.Balance, account2.Balance)
+	// run n concurrent transfer transactions
+	n := 10 // run 10 concurrent transactions
+	// we will have 5 transaction sending money from account1 to account2
+	// and 5 transaction sending money from account2 to account1
+	amount := int64(10) // each transaction transfer 10 units
+
+	errs := make(chan error) // channel to collect errors
+
+	// arrange:  this for loop will start 5 concurrent goroutines
+	// each goroutine will call the TransferTx function and send the result to the channel
+	for i := 0; i < n; i++ {
+		fromAccountID := account1.ID
+		toAccountID := account2.ID
+		if i % 2 == 1 {
+			fromAccountID = account2.ID
+			toAccountID = account1.ID
+		}
+		txName := fmt.Sprintf("tx %d", i + 1) // varaible for transaction name
+        go func() {
+		   ctx := context.WithValue(context.Background(), txKey, txName) // add transaction name to context
+           _, err := store.TransferTx(ctx, TransferTxParams{
+		     FromAccountID: fromAccountID,
+			 ToAccountID: toAccountID,
+			 Amount: amount,
+		   })
+
+		   errs <- err // send error to channel
+		}()
+    }
+
+	// check results
+	for i := 0; i < n; i++ {
+		err := <- errs // receive error from channel
+		require.NoError(t, err)
+	}
+
+	// check the final updated balances, this should be equal to the original balances because 1/2 of each go to the other account
+	updatedAccount1, err := testQueries.GetAccount(context.Background(), account1.ID)
+	require.NoError(t, err)
+
+	updatedAccount2, err := testQueries.GetAccount(context.Background(), account2.ID)
+	require.NoError(t, err)
+	fmt.Println(">> after:", updatedAccount1.Balance, updatedAccount2.Balance)
+	require.Equal(t, account1.Balance, updatedAccount1.Balance)
+	require.Equal(t, account2.Balance, updatedAccount2.Balance)
+
+	// Clean up all accounts from the database (including any from previous test runs)
+	// Must delete child records first due to foreign key constraints
+	_, err = testDB.Exec("DELETE FROM entries")
+	require.NoError(t, err)
+	_, err = testDB.Exec("DELETE FROM transfers")
+	require.NoError(t, err)
+	_, err = testDB.Exec("DELETE FROM accounts")
+	require.NoError(t, err)
+	verifyNoAccountExists(t);
 }
