@@ -9,6 +9,33 @@ import (
 	"context"
 )
 
+const addAccountBalance = `-- name: AddAccountBalance :one
+
+UPDATE accounts SET balance = balance + $1 
+WHERE id = $2
+RETURNING id, owner, balance, currency, created_at
+`
+
+type AddAccountBalanceParams struct {
+	Amount int64 `json:"amount"`
+	ID     int64 `json:"id"`
+}
+
+// Here UpdateAccount is the name of the function in generated go code :one means return one row
+// sqlc.arg(amount) allows use to use the amount variable in generated go code, because balance doesn't make sense
+func (q *Queries) AddAccountBalance(ctx context.Context, arg AddAccountBalanceParams) (Account, error) {
+	row := q.db.QueryRowContext(ctx, addAccountBalance, arg.Amount, arg.ID)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Owner,
+		&i.Balance,
+		&i.Currency,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO accounts (
   owner, 
@@ -40,11 +67,9 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (A
 }
 
 const deleteAccount = `-- name: DeleteAccount :exec
-
 DELETE FROM accounts WHERE id = $1
 `
 
-// Here UpdateAccount is the name of the function in generated go code :one means return one row
 func (q *Queries) DeleteAccount(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteAccount, id)
 	return err
@@ -74,11 +99,18 @@ func (q *Queries) GetAccount(ctx context.Context, id int64) (Account, error) {
 
 const getAccountForUpdate = `-- name: GetAccountForUpdate :one
 
-SELECT id, owner, balance, currency, created_at FROM accounts WHERE id = $1 LIMIT 1 FOR UPDATE
+
+SELECT id, owner, balance, currency, created_at FROM accounts WHERE id = $1 LIMIT 1 FOR NO KEY UPDATE
 `
 
 // Here GetAccount is the name of the function in generated go code :one means one row
 // we should use this function instead for transaction
+// SELECT * FROM accounts WHERE id = $1 LIMIT 1 FOR UPDATE; [ this is not ideal ]
+// however, this will create exclusive lock on the row,
+// which means no other transaction can read or write to the row until the current transaction is committed
+// it blocks UPDATE, DELETE and INSERT operations on the row
+// a better way is to use FOR NO KEY UPDATE
+// this only create weaker lock while allow INSERT, while still block modify key column and DELETE
 func (q *Queries) GetAccountForUpdate(ctx context.Context, id int64) (Account, error) {
 	row := q.db.QueryRowContext(ctx, getAccountForUpdate, id)
 	var i Account

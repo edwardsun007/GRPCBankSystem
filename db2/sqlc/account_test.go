@@ -44,7 +44,6 @@ func verifyNoAccountExists(t *testing.T) {
 func TestCreateAccount(t *testing.T) {
 	// Arrange: Prepare test data
 	account := createRandomAccount(t)
-
 	// Verify the account actually exists in the database by querying it
 	retrievedAccount, err := testQueries.GetAccount(context.Background(), account.ID)
 	require.NoError(t, err)
