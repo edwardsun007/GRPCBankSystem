@@ -111,46 +111,41 @@ func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (Trans
 
 		// steps for updating sender account balance
 		if arg.FromAccountID < arg.ToAccountID { // step to avoid deadlock: to fix case where both concurrenttransaction try to update the same account
-			var faError error
-			result.FromAccount, faError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
-				ID:     arg.FromAccountID,
-				Amount: -arg.Amount,
-			})
-			if faError != nil {
-				return faError // the transaction will be rolled back if this error occurs
-			}
-
-			// steps for updating receiver account balance
-			var taError error
-			result.ToAccount, taError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
-				ID:     arg.ToAccountID,
-				Amount: arg.Amount,
-			})
-			if taError != nil {
-				return taError // the transaction will be rolled back if this error occurs
+			var trError error
+			result.FromAccount, result.ToAccount, trError = addMoney(ctx, q, arg.FromAccountID, -arg.Amount, arg.ToAccountID, arg.Amount)
+			if trError != nil {
+				return trError // the transaction will be rolled back if this error occurs
 			}
 		} else { // update receiver account balance first
 			// steps for updating receiver account balance
-			var taError error
-			result.ToAccount, taError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
-				ID:     arg.ToAccountID,
-				Amount: arg.Amount,
-			})
-			if taError != nil {
-				return taError // the transaction will be rolled back if this error occurs
-			}
-
-			var faError error
-			result.FromAccount, faError = q.AddAccountBalance(ctx, AddAccountBalanceParams{
-				ID:     arg.FromAccountID,
-				Amount: -arg.Amount,
-			})
-			if faError != nil {
-				return faError // the transaction will be rolled back if this error occurs
+			var trError error
+			result.ToAccount, result.FromAccount, trError = addMoney(ctx, q, arg.ToAccountID, arg.Amount, arg.FromAccountID, -arg.Amount)
+			if trError != nil {
+				return trError // the transaction will be rolled back if this error occurs
 			}
 		}
 		return nil
 	}) // this block does the job of creating the transfer record
 
 	return result, err
+}
+
+func addMoney(
+	ctx context.Context,
+	q *Queries,
+	accountID1 int64, amount1 int64,
+	accountID2 int64, amount2 int64,
+) (account1 Account, account2 Account, err error) {
+	account1, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+		ID:     accountID1,
+		Amount: amount1,
+	})
+	if err != nil {
+		return
+	}
+	account2, err = q.AddAccountBalance(ctx, AddAccountBalanceParams{
+		ID:     accountID2,
+		Amount: amount2,
+	})
+	return
 }
