@@ -1,52 +1,32 @@
 package main
 
-import "fmt"
+import (
+	"database/sql"
+	"log"
+	db "github.com/techschool/simple-bank/db2/sqlc"
+	"github.com/techschool/simple-bank/api"
 
-type Employee struct {
-	Name string
-	Age  int
-}
+	_ "github.com/lib/pq" // PostgreSQL driver,
+	// _ is blank identifier to avoid import error if not used
+)
 
-func (e Employee) displayInfo() {
-	fmt.Printf("Name: %s, Age: %d\n", e.Name, e.Age)
-}
-
-
-
-func PublicFunc() string {
-	return "PublicFunc";
-}
-
-func privateFunc() string {
-	return "privateFunc";
-}
+const (
+	dbDriver = "postgres"
+	dbSource = "postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable"
+	serverAddress = "0.0.0.0:8080" // TODO: change to env variable
+)
 
 func main() {
-
-	e := Employee{
-		Name: "John",
-		Age:  30,
+	conn, err := sql.Open(dbDriver, dbSource)
+	if err != nil {
+		log.Fatal("Cannot connect to database:", err)
 	}
-	e.displayInfo()
 
-	pubMsg := PublicFunc();
-	fmt.Println(pubMsg);
+	store := db.NewStore(conn)
+	server := api.NewServer(store)
 
-	privateMsg := privateFunc();
-	fmt.Println(privateMsg);
-
-
-	// fmt.Println("Hello world");
-	// age := 27;
-	// fmt.Println(age);
-
-	// var cities = [...]string {"Seattle", "San Jose"};
-	// fmt.Println(cities[0]);
-	// fmt.Println(cities[1]);
-
-	// var userNames = [...]string{"jinzhu1", "jinzhu2",  "jinzhu3"};
-	// for _, name := range userNames {
-	// 	fmt.Println(name);
-	// }
-
+	err = server.Start(serverAddress)
+	if err != nil {
+		log.Fatal("Cannot start server:", err)
+	}
 }
