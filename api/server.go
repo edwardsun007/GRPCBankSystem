@@ -18,8 +18,8 @@ func NewServer(store *db.Store) *Server {
 
 	// add routes to the router
 	router.POST("/accounts", server.createAccount)
-	// router.GET("/accounts/:id", server.getAccountById)
-	// router.GET("/accounts/:id", server.getAccount)
+	router.GET("/accounts/:id", server.getAccount) //http://localhost:8080/accounts/1  :id because we get from uri
+	router.GET("/accounts/", server.listAccounts) // we will get query parameters, not from uri
 	// router.GET("/accounts", server.listAccounts)
 	// router.PUT("/accounts/:id", server.updateAccount)
 	// router.DELETE("/accounts/:id", server.deleteAccount)
