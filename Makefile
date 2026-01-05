@@ -22,7 +22,10 @@ test:
 server:
 	go run main.go
 
-.PHONY: postgres createdb dropdb migrateup migratedown sqlc test server
+mock:
+	mockgen -package mockdb -destination db2/mock/store.go github.com/techschool/simple-bank/db2/sqlc Store
+
+.PHONY: postgres createdb dropdb migrateup migratedown sqlc test server mock
 
 # WHY WE USE .PHONY:
 # With .PHONY:
