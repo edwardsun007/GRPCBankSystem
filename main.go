@@ -8,16 +8,18 @@ import (
 
 	_ "github.com/lib/pq" // PostgreSQL driver,
 	// _ is blank identifier to avoid import error if not used
+	"github.com/techschool/simple-bank/utils"
 )
 
-const (
-	dbDriver = "postgres"
-	dbSource = "postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable"
-	serverAddress = "0.0.0.0:8080" // TODO: change to env variable
-)
+
 
 func main() {
-	conn, err := sql.Open(dbDriver, dbSource)
+	config, err := utils.LoadConfig(".") // because config file is in same directory as main.go
+	if err != nil {
+		log.Fatal("Cannot load config:", err)
+	}
+
+	conn, err := sql.Open(config.DBDriver, config.DBSource)
 	if err != nil {
 		log.Fatal("Cannot connect to database:", err)
 	}
@@ -25,7 +27,7 @@ func main() {
 	store := db.NewStore(conn)
 	server := api.NewServer(store)
 
-	err = server.Start(serverAddress)
+	err = server.Start(config.ServerAddress)
 	if err != nil {
 		log.Fatal("Cannot start server:", err)
 	}

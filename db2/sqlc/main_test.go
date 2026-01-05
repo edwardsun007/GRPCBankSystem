@@ -8,12 +8,9 @@ import (
 
 	_ "github.com/lib/pq" // PostgreSQL driver,
 	// _ is blank identifier to avoid import error if not used
+	"github.com/techschool/simple-bank/utils"
 )
 
-const (
-	dbDriver = "postgres"
-	dbSource = "postgresql://root:secret@localhost:5432/simple_bank?sslmode=disable"
-)
 
 // this is a global variable that will be used by all unit tests
 var testQueries *Queries
@@ -21,7 +18,12 @@ var testDB *sql.DB // Store the database connection for raw SQL queries
 
 // entrance point for all unit tests
 func TestMain(m *testing.M) {
-	conn, err := sql.Open(dbDriver, dbSource)
+	config, err := utils.LoadConfig("../../")
+	if err != nil {
+		log.Fatal("Cannot load config:", err)
+	}
+
+	conn, err := sql.Open(config.DBDriver, config.DBSource)
 	if err != nil {
 		log.Fatal("Cannot connect to database:", err)
 	}
