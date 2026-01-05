@@ -7,7 +7,13 @@ import (
 )
 
 // store provides all functions to execute db queries and transactions
-type Store struct {
+type Store interface {
+	TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error)
+	Querier
+}
+
+// SQLStore provides all functions to execute SQL queries and transactions
+type SQLStore struct {
 	*Queries // Shares the same instance — all Store methods use the same Queries due to pointer
 	// Enable direct access, can execute queries like this: store.GetAccount(ctx, 1)
 	db *sql.DB
@@ -16,8 +22,8 @@ type Store struct {
 // NewStore creates a new Store with the given database connection
 // parameter db is the database connection
 // returns a new Store instance
-func NewStore(db *sql.DB) *Store {
-	return &Store{
+func NewStore(db *sql.DB) Store {
+	return &SQLStore{
 		db:      db,
 		Queries: New(db),
 	}
@@ -27,7 +33,7 @@ func NewStore(db *sql.DB) *Store {
 // parameter ctx is the context
 // parameter fn is CALLBACK function that will be executed within the transaction
 // returns error if the transaction fails
-func (store *Store) execTx(ctx context.Context, fn func(*Queries) error) error {
+func (store *SQLStore) execTx(ctx context.Context, fn func(*Queries) error) error {
 	tx, err := store.db.BeginTx(ctx, nil) // nil means use the default transaction options
 	if err != nil {
 		return err
@@ -72,7 +78,7 @@ var txKey = struct{}{}
 // parameter ctx is the context
 // parameter arg is the transfer request
 // returns error if the transfer fails
-func (store *Store) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
+func (store *SQLStore) TransferTx(ctx context.Context, arg TransferTxParams) (TransferTxResult, error) {
 	var result TransferTxResult
 
 	// the second parameter is a callback function that will be executed within the transaction

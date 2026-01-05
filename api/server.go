@@ -5,13 +5,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+
 type Server struct {
-    store *db.Store   // pointer to the store object that contains the database connection, directly access it without copying the value
+    store db.Store   // now store is interface, so removing the pointer
 	router *gin.Engine // HTTP request router
 }
 
 // Constructor to create a new server instance, return a pointer to that instance
-func NewServer(store *db.Store) *Server {
+func NewServer(store db.Store) *Server {
 	server := &Server{store: store}
 	router := gin.Default() // this use the gin default middleware
 
