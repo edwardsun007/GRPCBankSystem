@@ -19,13 +19,20 @@ sqlc:
 test:
 	go test -v -cover ./...
 
+
+test-coverage-html:
+	go test -v -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+	@echo "Open it in your browser to view detailed coverage"
+
 server:
 	go run main.go
 
 mock:
 	mockgen -package mockdb -destination db2/mock/store.go github.com/techschool/simple-bank/db2/sqlc Store
 
-.PHONY: postgres createdb dropdb migrateup migratedown sqlc test server mock
+.PHONY: postgres createdb dropdb migrateup migratedown sqlc test test-coverage-html server mock
 
 # WHY WE USE .PHONY:
 # With .PHONY:
