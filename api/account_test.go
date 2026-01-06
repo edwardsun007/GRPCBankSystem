@@ -13,6 +13,7 @@ import (
 	"io"
 	"bytes"
 	"encoding/json"
+	"database/sql"
 )
 func TestGetAccountAPI(t *testing.T) {
 	account := randomAccount()
@@ -40,7 +41,52 @@ func TestGetAccountAPI(t *testing.T) {
 				requireBodyMatchAccount(t, recorder.Body, account)
 			},
 		},
-		// TODO: add more cases later
+		{
+			name: "NotFound",
+			accountID: account.ID,
+			buildStubs: func(store *mockdb.MockStore) {
+				// build stubs
+			    // i expect the GetAccount method to be called with any context and this account.id exactly
+				store.EXPECT().
+				GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+				Times(1).
+				Return(db.Account{}, sql.ErrNoRows)
+				// the return of this stubs should match the return type of the GetAccount method
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusNotFound, recorder.Code)
+			},
+		},
+		{
+			name: "InternalServerError",
+			accountID: account.ID,
+			buildStubs: func(store *mockdb.MockStore) {
+				// build stubs
+			    // i expect the GetAccount method to be called with any context and this account.id exactly
+				store.EXPECT().
+				GetAccount(gomock.Any(), gomock.Eq(account.ID)).
+				Times(1).
+				Return(db.Account{}, sql.ErrConnDone)
+				// the return of this stubs should match the return type of the GetAccount method
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusInternalServerError, recorder.Code)
+			},
+		},
+		{
+			name: "InvalidID",
+			accountID: 0,
+			buildStubs: func(store *mockdb.MockStore) {
+				// build stubs
+			    // i expect the GetAccount method to be called with any context and this account.id exactly
+				store.EXPECT().
+				GetAccount(gomock.Any(), gomock.Any()).
+				Times(0)
+			},
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
+				require.Equal(t, http.StatusBadRequest, recorder.Code)
+			},
+		},
 	}
 
 
@@ -58,7 +104,7 @@ func TestGetAccountAPI(t *testing.T) {
 			server := NewServer(store)
 			recorder := httptest.NewRecorder()
 	
-			url := fmt.Sprintf("/accounts/%d", account.ID)
+			url := fmt.Sprintf("/accounts/%d", tc.accountID) // there was a bug where using top defined account.ID, should actuall use  the account
 			fmt.Println("url:", url)
 			request, err := http.NewRequest(http.MethodGet, url, nil)
 			require.NoError(t, err)
