@@ -7,3 +7,7 @@
 .env.test.local
 .env.production.local
 .env.development
+
+# Test coverage files
+coverage.out
+coverage.html
